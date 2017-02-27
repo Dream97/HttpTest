@@ -5,32 +5,47 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
-import com.example.asus.login.util.GetVerificationCodeUtil;
-import com.example.asus.login.util.RegisterUtil;
+import com.example.asus.login.util.PostUtil;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONObject;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by asus on 2017/2/23.
  */
 public class RegisterActivity extends Activity implements View.OnClickListener{
+    //接口
+    public String url = "http://120.77.16.36/api/";
+    public String GET_VERIFICATIONCODE = url+"auth/getVerificationCode";
+    public String REGISTER = url +"auth/register";
+
     private EditText registerPhone;
     private EditText useName;
     private EditText registerpass;
     private EditText verificationCode;
     private ImageButton CodeBn;
     private ImageButton registBn;
-    HttpClient httpClient;
+    public  String phone;
+
     final int VERIFICATION_SUCCESSFUL = 1;
     //final int VERIFICATION_FAIL = 0;
     final int REGISTER_SUCCESSFUL = 2;
     //final int REGISTER_FAIL = 3;
+    public Map<String,String> maps;
+
+    public  PostUtil postUtil;
+    public String result;
+    public String code;
+    public String name;
+    public String password;
 
     public Handler handler = new Handler()
     {
@@ -86,10 +101,10 @@ public class RegisterActivity extends Activity implements View.OnClickListener{
         verificationCode = (EditText) findViewById(R.id.getVerificationCode);
         CodeBn = (ImageButton) findViewById(R.id.get);
         registBn = (ImageButton) findViewById(R.id.rgButton);
-        httpClient = new DefaultHttpClient();
 
         CodeBn.setOnClickListener(this);//获取验证码监听
         registBn.setOnClickListener(this);
+
     }
     @Override
     public void onClick(View v)
@@ -97,19 +112,58 @@ public class RegisterActivity extends Activity implements View.OnClickListener{
         switch (v.getId())
         {
             case R.id.get:
-                String phoneNumber = registerPhone.toString();
-                //new Thread(new Runnable() {
-                new GetVerificationCodeUtil(phoneNumber,handler);
+                phone = registerPhone.getText().toString();
+                maps = new HashMap<>();
+                maps.put("phone",phone);
+                postUtil = new PostUtil();
+                result = postUtil.postWithResult(GET_VERIFICATIONCODE,maps);
+                parseJSONWithJSONObject(result);
                 break;
             case R.id.rgButton:
-                String phone = registerPhone.toString();
-                String name = useName.toString();
-                String password = registerpass.toString();
-                String code = verificationCode.toString();
-                new RegisterUtil(phone,name,password,code,handler);
+                phone = registerPhone.getText().toString();
+                name = useName.getText().toString();
+                password = registerpass.getText().toString();
+                code = verificationCode.getText().toString();
+                maps = new HashMap<>();
+                maps.put("phone",phone);
+                maps.put("name",name);
+                maps.put("password",password);
+                maps.put("code",code);
+                postUtil = new PostUtil();
+                result = postUtil.postWithResult(REGISTER,maps);
+                parseJSONWithJSONObject(result);
                 break;
             default:
                 break;
+        }
+    }
+
+    //解析JSON数据
+    private void parseJSONWithJSONObject(String jsonData)
+    {
+        try{
+            JSONObject jsonObject = new JSONObject(jsonData);
+            int status = jsonObject.getInt("status");
+            String errmsg = jsonObject.getString("errmsg");
+
+            Log.d("RegistActivity","status is "+status);
+            Log.d("RegistActivity","errmsg is "+errmsg);
+
+            if(status == 0)
+            {
+                int errcode = jsonObject.getInt("errcode");
+                Log.d("RegistActivity", "errcode is " + errcode);
+                Message message = new Message();
+                message.what = errcode;
+                handler.sendMessage(message);
+            } else {
+                Message message = new Message();
+                message.what = 1;
+                handler.sendMessage(message);
+            }
+        } catch (Exception e)
+        {
+            e.printStackTrace();
         }
     }
 
